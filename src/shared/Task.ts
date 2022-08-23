@@ -1,8 +1,14 @@
-import { Entity, Fields, Validators } from "remult";
+import { Allow, Entity, Fields, Validators } from "remult";
+import { Roles } from "./roles";
 
 // The @Entity decorator tells Remult this class is an entity class
 @Entity("tasks", {
-  allowApiCrud: true //allow all CRUD operations for tasks
+  // allowApiCrud: true //allow all CRUD operations for tasks
+  // allowApiCrud: Allow.authenticated //allow all CRUD operations for tasks
+  allowApiRead: Allow.authenticated,
+  allowApiUpdate: Allow.authenticated,
+  allowApiInsert: Roles.admin,
+  allowApiDelete: Roles.admin
 })
 
 export class Task {
@@ -15,7 +21,8 @@ export class Task {
     validate: (task) => {
       if (task.title.length < 6)
         throw "Too Short";
-    }
+    },
+    allowApiUpdate: Roles.admin
   })
   title = ''; // entity data field of type String
 

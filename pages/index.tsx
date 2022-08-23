@@ -4,10 +4,15 @@ import { useEffect, useState } from 'react';
 
 import { remult } from '../src/common';
 import { Task } from '../src/shared/Task';
+import { AuthController } from "../src/shared/AuthController";
+import { TasksController } from "../src/shared/TasksController";
+import { loadAuth, setAuthToken } from "../src/common";
 
 const taskRepo = remult.repo(Task);
 
 async function fetchTasks(hideCompleted: boolean) {
+  if (!taskRepo.metadata.apiReadAllowed)
+    return [];
   return taskRepo.find({
     limit: 20,
     orderBy: { completed: "asc" }, // NOTE: By default, false is a "lower" value than true, and that's why uncompleted tasks are now showing at the top of the task list
@@ -20,18 +25,57 @@ async function fetchTasks(hideCompleted: boolean) {
 const Home: NextPage = () => {
   const [tasks, setTasks] = useState<(Task & { error?: ErrorInfo<Task> })[]>([]); // store errors and display them next to the relevant input element
   const [hideCompleted, setHideCompleted] = useState(false);
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    loadAuth();
+    fetchTasks(hideCompleted).then(setTasks); //  hook used to call fetchTasks once when the React component is loaded
+  }, [hideCompleted]); //  effect re-runs when hideCompleted changes
 
   // Add New Tasks
   const addTask = () => {
     setTasks([...tasks, new Task()]);
   };
 
-  useEffect(() => {
-    fetchTasks(hideCompleted).then(setTasks); //  hook used to call fetchTasks once when the React component is loaded
-  }, [hideCompleted]); //  effect re-runs when hideCompleted changes
+  // Mark all tasks as complete/uncomplete
+  const setAll = async (completed: boolean) => {
+    // call to the setAll method in the TasksController
+    await TasksController.setAll(completed);
+    setTasks(await fetchTasks(hideCompleted));
+  };
+
+  const signIn = async () => {
+    try {
+      setAuthToken(await AuthController.signIn(username));
+      window.location.reload();
+    }
+    catch (error: any) {
+      alert(error.message);
+    }
+  }
+
+  const signOut = () => {
+    setAuthToken(null);
+    window.location.reload();
+  }
+
+  if (!remult.authenticated())
+    return (<div>
+      <p>
+        <input value={username} onChange={e => setUsername(e.target.value)} />
+        <button onClick={signIn}>Sign in</button>
+      </p>
+    </div>);
 
   return (
     <div>
+      <p>
+        Hi {remult.user.name} <button onClick={signOut}>Sign out</button>
+      </p>
+      <div>
+        <button onClick={() => setAll(true)}>Set all as completed</button>
+        <button onClick={() => setAll(false)}>Set all as uncompleted</button>
+      </div>
       <input
         type="checkbox"
         checked={hideCompleted}
